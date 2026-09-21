@@ -73,6 +73,16 @@ def main():
         lora_config_dict=config.get("lora", {}),
         torch_dtype=config["model"].get("torch_dtype", "bfloat16"),
     )
+    trainable_params = sum(
+        parameter.numel()
+        for parameter in model.parameters()
+        if parameter.requires_grad
+    )
+    total_params = sum(parameter.numel() for parameter in model.parameters())
+    print(
+        f"Trainable parameters: {trainable_params:,} / {total_params:,} "
+        f"({100 * trainable_params / total_params:.2f}%)"
+    )
 
     # Enable gradient checkpointing for memory efficiency
     if config["training"].get("gradient_checkpointing", True):

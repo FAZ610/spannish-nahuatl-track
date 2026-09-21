@@ -11,6 +11,7 @@ This repository contains the complete, production-ready codebase to fine-tune **
 ├── config.yaml               # Training, model, LoRA, and data hyperparameters
 ├── requirements.txt          # Python dependencies
 ├── train.py                  # Main training entrypoint (Seq2SeqTrainer + LoRA/PEFT)
+├── prepare_data.py           # Conversation-level train/dev split generator
 ├── evaluate_model.py         # Offline validation and WER/CER error analysis
 ├── export_submission.py      # Exports & packages merged weights + main.py into submission.zip
 ├── src/
@@ -39,7 +40,16 @@ pip install -r requirements.txt
 
 ### 2. Prepare Data
 
-Download the competition dataset from MDC and organize it under `./data/`:
+For the cloned `nahuatl_dev` data, create a conversation-level train/dev split:
+
+```bash
+python prepare_data.py
+```
+
+The script writes `data/train_metadata.csv` and `data/dev_metadata.csv`; both
+splits use audio from `nahuatl_dev/clips`.
+
+For the full competition dataset, organize it under `./data/`:
 
 ```
 data/
@@ -71,7 +81,7 @@ python train.py --config config.yaml
 - `--val_audio_dir`: Directory containing validation audio files.
 - `--output_dir`: Directory where checkpoints are saved.
 - `--batch_size`: Per-device batch size (e.g., 8 or 16).
-- `--learning_rate`: Peak learning rate (default: `1e-4` for LoRA).
+- `--learning_rate`: Peak learning rate (default: `5e-5` for LoRA).
 - `--num_train_epochs`: Total epochs (default: `5`).
 - `--merge_lora`: Automatically merge LoRA adapter into full model after training.
 

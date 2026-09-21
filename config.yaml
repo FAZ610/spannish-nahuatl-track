@@ -7,10 +7,9 @@ model:
   torch_dtype: "bfloat16"  # "bfloat16" or "float16" or "float32"
 
 data:
-  train_manifest: "nahuatl_dev/metadata.tsv"
+  train_manifest: "data/train_metadata.csv"
   train_audio_dir: "nahuatl_dev/clips"
-  # The cloned data has no separate training/validation split.
-  val_manifest: ""
+  val_manifest: "data/dev_metadata.csv"
   val_audio_dir: "nahuatl_dev/clips"
   audio_column: "audio_filename"
   text_column: "transcript"
@@ -25,7 +24,7 @@ training:
   per_device_train_batch_size: 8
   per_device_eval_batch_size: 8
   gradient_accumulation_steps: 4
-  learning_rate: 1.0e-4
+  learning_rate: 5.0e-5
   warmup_ratio: 0.1
   lr_scheduler_type: "cosine"
   weight_decay: 0.01
@@ -46,10 +45,10 @@ training:
   generation_max_length: 225
 
 lora:
-  r: 32
-  lora_alpha: 64
-  target_modules: ["q_proj", "v_proj", "k_proj", "out_proj", "fc1", "fc2"]
-  lora_dropout: 0.05
+  r: 16
+  lora_alpha: 32
+  target_modules: ["q_proj", "v_proj"]
+  lora_dropout: 0.1
   bias: "none"
 
 inference:

@@ -16,8 +16,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate fine-tuned Whisper model on dev/eval set")
     parser.add_argument("--model_dir", type=str, default="./output/whisper-large-v3-turbo-spanish-nahuatl", help="Model directory or merged checkpoint")
     parser.add_argument("--base_model_id", type=str, default="openai/whisper-large-v3-turbo", help="Base model id if using LoRA")
-    parser.add_argument("--manifest", type=str, default="data/dev_metadata.csv", help="Path to evaluation manifest CSV")
-    parser.add_argument("--audio_dir", type=str, default="data/dev_clips", help="Path to evaluation audio clips directory")
+    parser.add_argument("--manifest", type=str, default="data/dev_metadata.csv", help="Path to evaluation manifest CSV or TSV")
+    parser.add_argument("--audio_dir", type=str, default="nahuatl_dev/clips", help="Path to evaluation audio clips directory")
     parser.add_argument("--batch_size", type=int, default=16, help="Inference batch size")
     parser.add_argument("--output_csv", type=str, default="output/eval_predictions.csv", help="Path to save predictions")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
@@ -59,7 +59,8 @@ def main():
     model.eval()
 
     # Load metadata
-    df = pd.read_csv(args.manifest)
+    delimiter = "\t" if args.manifest.lower().endswith((".tsv", ".tab")) else ","
+    df = pd.read_csv(args.manifest, sep=delimiter, index_col=0 if delimiter == "\t" else None)
     print(f"Loaded {len(df)} evaluation samples from {args.manifest}")
 
     predictions = []
