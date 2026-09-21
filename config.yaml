@@ -20,8 +20,8 @@ data:
 
 training:
   output_dir: "./output/whisper-large-v3-turbo-spanish-nahuatl"
-  use_lora: true
-  num_train_epochs: 50
+  use_lora: false
+  num_train_epochs: 15
   per_device_train_batch_size: 16
   per_device_eval_batch_size: 8
   gradient_accumulation_steps: 4
