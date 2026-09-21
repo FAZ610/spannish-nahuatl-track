@@ -69,16 +69,19 @@ class SpanishNahuatlDataset(Dataset):
         audio_data = load_audio_file(audio_path, target_sr=self.sampling_rate)
 
         # Compute log-mel spectrogram input features (128 mel bins for Whisper Large v3 Turbo)
-        input_features = self.processor.feature_extractor(
+        encoded_audio = self.processor.feature_extractor(
             audio_data,
             sampling_rate=self.sampling_rate,
             return_tensors="pt",
-        ).input_features[0]
+            return_attention_mask=True,
+        )
 
         item = {
-            "input_features": input_features,
+            "input_features": encoded_audio.input_features[0],
             "audio_filename": filename,
         }
+        if "attention_mask" in encoded_audio:
+            item["attention_mask"] = encoded_audio.attention_mask[0]
 
         # If transcript is available (training / validation), tokenize it
         if self.text_column in row and pd.notna(row[self.text_column]):

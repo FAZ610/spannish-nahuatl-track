@@ -122,6 +122,7 @@ def main():
     data_collator = DataCollatorSpeechSeq2SeqWithPadding(
         processor=processor,
         decoder_start_token_id=model.config.decoder_start_token_id,
+        input_dtype=next(model.parameters()).dtype,
     )
     compute_metrics = ComputeMetrics(tokenizer=processor.tokenizer)
 

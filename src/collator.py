@@ -12,11 +12,20 @@ class DataCollatorSpeechSeq2SeqWithPadding:
     """
     processor: WhisperProcessor
     decoder_start_token_id: int = None
+    input_dtype: torch.dtype = torch.float32
 
     def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
         # Extract speech features
-        input_features = [{"input_features": feature["input_features"]} for feature in features]
+        input_features = [
+            {
+                key: feature[key]
+                for key in ("input_features", "attention_mask")
+                if key in feature
+            }
+            for feature in features
+        ]
         batch = self.processor.feature_extractor.pad(input_features, return_tensors="pt")
+        batch["input_features"] = batch["input_features"].to(dtype=self.input_dtype)
 
         # Extract label token sequences
         label_features = [{"input_ids": feature["labels"]} for feature in features]
