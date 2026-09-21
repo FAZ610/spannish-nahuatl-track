@@ -108,6 +108,19 @@ Fine-tuning using Parameter-Efficient Fine-Tuning (PEFT / LoRA) on query/value/k
 python train.py --config config.yaml
 ```
 
+For a quick smoke test that does not process the full corpus, limit the
+number of examples:
+
+```bash
+python train.py --config config.yaml \
+  --max_train_samples 16 \
+  --max_eval_samples 4 \
+  --num_train_epochs 1 \
+  --batch_size 1 \
+  --gradient_accumulation_steps 1 \
+  --output_dir output/smoke-test
+```
+
 ### Key Training Options:
 - `--config`: Path to YAML configuration (default: `config.yaml`).
 - `--train_manifest`: Path to training CSV manifest.

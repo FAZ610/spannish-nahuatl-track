@@ -23,6 +23,7 @@ class SpanishNahuatlDataset(Dataset):
         max_duration: float = 30.0,
         min_duration: float = 0.5,
         is_training: bool = True,
+        max_samples: int = None,
     ):
         super().__init__()
         self.audio_dir = audio_dir
@@ -55,6 +56,10 @@ class SpanishNahuatlDataset(Dataset):
             df = df[df[text_column].astype(str).str.strip().str.len() > 0]
 
         self.df = df.reset_index(drop=True)
+        if max_samples is not None:
+            if max_samples < 1:
+                raise ValueError("max_samples must be positive when provided")
+            self.df = self.df.iloc[:max_samples].reset_index(drop=True)
         self.audio_column = audio_column
 
     def __len__(self) -> int:
@@ -74,6 +79,9 @@ class SpanishNahuatlDataset(Dataset):
             sampling_rate=self.sampling_rate,
             return_tensors="pt",
             return_attention_mask=True,
+            padding="max_length",
+            max_length=self.processor.feature_extractor.n_samples,
+            truncation=True,
         )
 
         item = {

@@ -24,6 +24,8 @@ def parse_args():
     parser.add_argument("--learning_rate", type=float, default=None, help="Override learning rate")
     parser.add_argument("--batch_size", type=int, default=None, help="Override per-device train batch size")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=None, help="Override grad accum steps")
+    parser.add_argument("--max_train_samples", type=int, default=None, help="Limit training samples for a smoke test")
+    parser.add_argument("--max_eval_samples", type=int, default=None, help="Limit evaluation samples for a smoke test")
     parser.add_argument("--merge_lora", action="store_true", help="Merge LoRA weights into standalone model after training")
     return parser.parse_args()
 
@@ -100,6 +102,7 @@ def main():
         max_duration=config["data"].get("max_duration_seconds", 30.0),
         min_duration=config["data"].get("min_duration_seconds", 0.5),
         is_training=True,
+        max_samples=args.max_train_samples,
     )
     print(f"Train samples: {len(train_dataset)}")
 
@@ -115,6 +118,7 @@ def main():
             max_duration=config["data"].get("max_duration_seconds", 30.0),
             min_duration=config["data"].get("min_duration_seconds", 0.5),
             is_training=False,
+            max_samples=args.max_eval_samples,
         )
         print(f"Evaluation samples: {len(eval_dataset)}")
 

@@ -97,7 +97,9 @@ def main():
             batch_audio,
             sampling_rate=16000,
             return_tensors="pt",
-            padding=True,
+            padding="max_length",
+            max_length=processor.feature_extractor.n_samples,
+            truncation=True,
             return_attention_mask=True,
         )
         generation_inputs = {
