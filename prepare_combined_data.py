@@ -134,6 +134,8 @@ def main() -> None:
         output_dir / "train_metadata.csv",
         competition_train + tetelancingo_train,
     )
+    write_manifest(output_dir / "competition_train_metadata.csv", competition_train)
+    write_manifest(output_dir / "tetelancingo_train_metadata.csv", tetelancingo_train)
     write_manifest(
         output_dir / "dev_metadata.csv",
         competition_dev + tetelancingo_test,

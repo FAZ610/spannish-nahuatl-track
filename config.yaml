@@ -17,6 +17,11 @@ data:
   max_duration_seconds: 30.0
   min_duration_seconds: 0.5
   num_proc: 4
+  spec_augment: true
+  frequency_mask_param: 15
+  time_mask_param: 35
+  num_frequency_masks: 2
+  num_time_masks: 2
 
 training:
   output_dir: "./output/whisper-large-v3-turbo-spanish-nahuatl"
@@ -44,11 +49,12 @@ training:
   dataloader_num_workers: 4
   predict_with_generate: true
   generation_max_length: 225
+  label_smoothing_factor: 0.1
 
 lora:
   r: 32
   lora_alpha: 64
-  target_modules: ["q_proj", "k_proj", "v_proj", "out_proj"]
+  target_modules: ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"]
   lora_dropout: 0.05
   bias: "none"
 

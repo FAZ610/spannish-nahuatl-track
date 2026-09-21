@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import torch
+import torchaudio
 from torch.utils.data import Dataset
 from transformers import WhisperProcessor
 from src.utils import load_audio_file, normalize_transcript
@@ -24,6 +25,11 @@ class SpanishNahuatlDataset(Dataset):
         min_duration: float = 0.5,
         is_training: bool = True,
         max_samples: int = None,
+        spec_augment: bool = False,
+        frequency_mask_param: int = 15,
+        time_mask_param: int = 35,
+        num_frequency_masks: int = 2,
+        num_time_masks: int = 2,
     ):
         super().__init__()
         self.audio_dir = audio_dir
@@ -31,6 +37,15 @@ class SpanishNahuatlDataset(Dataset):
         self.sampling_rate = sampling_rate
         self.is_training = is_training
         self.text_column = text_column
+        self.spec_augment = spec_augment and is_training
+        self.frequency_masking = [
+            torchaudio.transforms.FrequencyMasking(freq_mask_param=frequency_mask_param)
+            for _ in range(num_frequency_masks)
+        ]
+        self.time_masking = [
+            torchaudio.transforms.TimeMasking(time_mask_param=time_mask_param)
+            for _ in range(num_time_masks)
+        ]
 
         # Load comma-separated or tab-separated metadata.
         delimiter = "\t" if manifest_path.lower().endswith((".tsv", ".tab")) else ","
@@ -83,9 +98,15 @@ class SpanishNahuatlDataset(Dataset):
             max_length=self.processor.feature_extractor.n_samples,
             truncation=True,
         )
+        input_features = encoded_audio.input_features[0]
+        if self.spec_augment:
+            for transform in self.frequency_masking:
+                input_features = transform(input_features)
+            for transform in self.time_masking:
+                input_features = transform(input_features)
 
         item = {
-            "input_features": encoded_audio.input_features[0],
+            "input_features": input_features,
             "audio_filename": filename,
         }
         if "attention_mask" in encoded_audio:

@@ -181,6 +181,56 @@ For best WER, select the checkpoint using the competition validation set,
 not the mixed validation score alone. Compare the competition-only and
 Tetelancingo-only WER/CER, then export the best checkpoint.
 
+### Two-stage curriculum training
+
+`prepare_combined_data.py` also writes:
+
+```text
+data/combined/tetelancingo_train_metadata.csv
+data/combined/competition_train_metadata.csv
+```
+
+Run Stage 1 on Tetelancingo:
+
+```bash
+python train.py --config config.yaml \
+  --train_manifest data/combined/tetelancingo_train_metadata.csv \
+  --train_audio_dir . \
+  --val_manifest data/combined/dev_metadata.csv \
+  --val_audio_dir . \
+  --num_train_epochs 5 \
+  --learning_rate 2e-5 \
+  --output_dir output/curriculum-stage1
+```
+
+Choose the best Stage 1 checkpoint using competition validation WER. Then
+continue from that checkpoint on competition training data:
+
+```bash
+python train.py --config config.yaml \
+  --train_manifest data/combined/competition_train_metadata.csv \
+  --train_audio_dir . \
+  --val_manifest data/dev_metadata.csv \
+  --val_audio_dir nahuatl_dev/clips \
+  --num_train_epochs 2 \
+  --learning_rate 5e-6 \
+  --resume_from_checkpoint output/curriculum-stage1/checkpoint-N \
+  --output_dir output/curriculum-stage2 \
+  --merge_lora
+```
+
+Use a checkpoint path that actually exists. Stage 2 loads the Stage 1 LoRA
+weights and Trainer state; it does not start from the base model again.
+
+Training-only SpecAugment is enabled by default in `config.yaml`. It applies
+frequency and time masks after Whisper feature extraction and is disabled for
+validation. Disable it for an ablation with:
+
+```yaml
+data:
+  spec_augment: false
+```
+
 ### WER improvement protocol
 
 Use the following order; measure every change on the same held-out manifests.

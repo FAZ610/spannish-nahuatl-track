@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument("--gradient_accumulation_steps", type=int, default=None, help="Override grad accum steps")
     parser.add_argument("--max_train_samples", type=int, default=None, help="Limit training samples for a smoke test")
     parser.add_argument("--max_eval_samples", type=int, default=None, help="Limit evaluation samples for a smoke test")
+    parser.add_argument("--resume_from_checkpoint", type=str, default=None, help="Resume from a Trainer checkpoint")
     parser.add_argument("--merge_lora", action="store_true", help="Merge LoRA weights into standalone model after training")
     return parser.parse_args()
 
@@ -103,6 +104,11 @@ def main():
         min_duration=config["data"].get("min_duration_seconds", 0.5),
         is_training=True,
         max_samples=args.max_train_samples,
+        spec_augment=config["data"].get("spec_augment", False),
+        frequency_mask_param=config["data"].get("frequency_mask_param", 15),
+        time_mask_param=config["data"].get("time_mask_param", 35),
+        num_frequency_masks=config["data"].get("num_frequency_masks", 2),
+        num_time_masks=config["data"].get("num_time_masks", 2),
     )
     print(f"Train samples: {len(train_dataset)}")
 
@@ -155,6 +161,7 @@ def main():
         dataloader_num_workers=config["training"].get("dataloader_num_workers", 2),
         predict_with_generate=config["training"].get("predict_with_generate", True),
         generation_max_length=config["training"].get("generation_max_length", 225),
+        label_smoothing_factor=config["training"].get("label_smoothing_factor", 0.0),
         report_to=["none"],
         remove_unused_columns=False,
     )
@@ -172,7 +179,7 @@ def main():
 
     # 6. Train
     print("Starting training...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
 
     # 7. Save Final Model & Processor
     print(f"Saving final model to {output_dir}...")
