@@ -1,155 +1,201 @@
-import os
-import sys
-import time
-import math
+"""Offline competition entry point for Spanish-Nahuatl transcription."""
+
 import csv
-import pandas as pd
-import numpy as np
-import torch
-import soundfile as sf
+import math
+import os
+import time
+from pathlib import Path
+
 import librosa
-from transformers import (
-    WhisperProcessor,
-    WhisperForConditionalGeneration,
-)
+import pandas as pd
+import torch
+from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
-# Configuration and Paths
-ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.getenv("DATA_DIR", "data")
-OUTPUT_DIR = os.getenv("SUBMISSION_DIR", "submission")
-WEIGHTS_DIR = os.getenv("WEIGHTS_DIR", os.path.join(ROOT_DIR, "weights"))
 
-TEST_METADATA_PATH = os.path.join(DATA_DIR, "test_metadata.csv")
-AUDIO_CLIPS_DIR = os.path.join(DATA_DIR, "clips")
-OUTPUT_SUBMISSION_PATH = os.path.join(OUTPUT_DIR, "submission.csv")
+DATA_DIR = Path("/code_execution/data")
+CLIPS_DIR = DATA_DIR / "clips"
+TEST_METADATA = DATA_DIR / "test_metadata.csv"
+SUBMISSION_PATH = Path("/code_execution/submission/submission.csv")
+MODEL_DIR = Path(__file__).parent / "weights"
 
-BATCH_SIZE = 32
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 16_000
+BATCH_SIZE = 16
 MAX_NEW_TOKENS = 225
+TIME_BUDGET_SECONDS = 100 * 60
+BLANK_TRANSCRIPT = " "
+
+
+def load_audio(path: Path) -> tuple[object, float]:
+    audio, sample_rate = librosa.load(str(path), sr=SAMPLE_RATE, mono=True)
+    return audio, len(audio) / SAMPLE_RATE
 
 
 def clean_transcript(text: str) -> str:
-    """Clean generated transcript for final submission."""
-    if not isinstance(text, str):
-        return ""
-    # Strip unnecessary whitespaces and trailing artifacts
-    return " ".join(text.split()).strip()
+    return " ".join(str(text).split()).strip()
 
 
-def load_audio(audio_path: str, target_sr: int = 16000) -> np.ndarray:
-    """Load audio with fallback mechanism."""
-    try:
-        data, sr = sf.read(audio_path)
-        if data.ndim > 1:
-            data = np.mean(data, axis=1)
-        if sr != target_sr:
-            data = librosa.resample(data.astype(np.float32), orig_sr=sr, target_sr=target_sr)
-    except Exception:
-        data, _ = librosa.load(audio_path, sr=target_sr, mono=True)
-    return data.astype(np.float32)
-
-
-def main():
-    start_time = time.time()
-    print("[INFO] Starting Lost in Transcription (Spanish-Nahuatl) inference pipeline...")
-
-    # Validate paths
-    if not os.path.exists(TEST_METADATA_PATH):
-        raise FileNotFoundError(f"Test metadata not found at: {TEST_METADATA_PATH}")
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-    # Detect device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dtype = torch.float16 if device.type == "cuda" else torch.float32
-    print(f"[INFO] Execution device: {device}, Precision: {dtype}")
-
-    # Load Model & Processor from local weights directory
-    model_source = WEIGHTS_DIR if os.path.exists(WEIGHTS_DIR) else ROOT_DIR
-    print(f"[INFO] Loading Whisper Large v3 Turbo model from: {model_source}")
-
-    processor = WhisperProcessor.from_pretrained(model_source, local_files_only=True)
-    model = WhisperForConditionalGeneration.from_pretrained(
-        model_source,
-        torch_dtype=dtype,
-        local_files_only=True,
-        low_cpu_mem_usage=True,
-    )
-    model.to(device)
-    model.eval()
-
-    # Load test metadata manifest
-    metadata_df = pd.read_csv(TEST_METADATA_PATH)
-    total_samples = len(metadata_df)
-    print(f"[INFO] Total test samples to transcribe: {total_samples}")
-
-    audio_filenames = metadata_df["audio_filename"].tolist()
-    predictions = []
-
-    # Batch inference loop
-    total_batches = math.ceil(total_samples / BATCH_SIZE)
-    log_interval = max(1, total_batches // 10)  # Log ~10 progress updates to respect log quota
-
-    for batch_idx in range(total_batches):
-        start_idx = batch_idx * BATCH_SIZE
-        end_idx = min(start_idx + BATCH_SIZE, total_samples)
-        batch_files = audio_filenames[start_idx:end_idx]
-
-        batch_audio = []
-        for fname in batch_files:
-            audio_path = os.path.join(AUDIO_CLIPS_DIR, fname)
-            if os.path.exists(audio_path):
-                audio = load_audio(audio_path, target_sr=SAMPLE_RATE)
-            else:
-                # In case of missing clip, pad with 1 second of silence
-                audio = np.zeros(SAMPLE_RATE, dtype=np.float32)
-            batch_audio.append(audio)
-
-        # Feature extraction
-        inputs = processor(
-            batch_audio,
-            sampling_rate=SAMPLE_RATE,
-            return_tensors="pt",
-            padding=True,
-        )
-        input_features = inputs.input_features.to(device, dtype=dtype)
-
-        # Generate transcriptions
-        with torch.inference_mode():
-            generated_ids = model.generate(
-                input_features,
-                language="spanish",
-                task="transcribe",
-                max_new_tokens=MAX_NEW_TOKENS,
-            )
-
-        # Decode tokens to text
-        batch_preds = processor.batch_decode(generated_ids, skip_special_tokens=True)
-        for pred in batch_preds:
-            predictions.append(clean_transcript(pred))
-
-        if (batch_idx + 1) % log_interval == 0 or (batch_idx + 1) == total_batches:
-            progress = ((batch_idx + 1) / total_batches) * 100
-            elapsed = time.time() - start_time
-            print(f"[PROGRESS] Completed batch {batch_idx + 1}/{total_batches} ({progress:.1f}%) in {elapsed:.1f}s")
-
-    # Build submission DataFrame
-    submission_df = pd.DataFrame({
-        "audio_filename": audio_filenames,
-        "transcript": predictions,
-    })
-
-    # Save to CSV using standard quoting rules
-    submission_df.to_csv(
-        OUTPUT_SUBMISSION_PATH,
+def write_submission(filenames: list[str], transcripts: dict[str, str]) -> None:
+    SUBMISSION_PATH.parent.mkdir(parents=True, exist_ok=True)
+    rows = [
+        {
+            "audio_filename": filename,
+            "transcript": clean_transcript(transcripts.get(filename, ""))
+            or BLANK_TRANSCRIPT,
+        }
+        for filename in filenames
+    ]
+    pd.DataFrame(rows).to_csv(
+        SUBMISSION_PATH,
         index=False,
         quoting=csv.QUOTE_MINIMAL,
         encoding="utf-8",
     )
 
-    total_time = time.time() - start_time
-    print(f"[SUCCESS] Predictions written to: {OUTPUT_SUBMISSION_PATH}")
-    print(f"[SUCCESS] Rows: {len(submission_df)}, Total time: {total_time:.2f}s")
+
+def generate_short(
+    model,
+    processor,
+    audios: list[object],
+    device: torch.device,
+    dtype: torch.dtype,
+) -> list[str]:
+    inputs = processor(
+        audios,
+        sampling_rate=SAMPLE_RATE,
+        return_tensors="pt",
+        padding="max_length",
+        max_length=processor.feature_extractor.n_samples,
+        truncation=True,
+        return_attention_mask=True,
+    )
+    with torch.inference_mode():
+        generated = model.generate(
+            input_features=inputs.input_features.to(device, dtype=dtype),
+            attention_mask=inputs.attention_mask.to(device),
+            language=None,
+            task="transcribe",
+            condition_on_prev_tokens=False,
+            num_beams=5,
+            temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+            compression_ratio_threshold=1.35,
+            logprob_threshold=-1.0,
+            no_speech_threshold=0.6,
+            max_new_tokens=MAX_NEW_TOKENS,
+        )
+    return [
+        clean_transcript(text)
+        for text in processor.batch_decode(generated, skip_special_tokens=True)
+    ]
+
+
+def generate_long(
+    model,
+    processor,
+    audio: object,
+    device: torch.device,
+    dtype: torch.dtype,
+) -> str:
+    inputs = processor(
+        audio,
+        sampling_rate=SAMPLE_RATE,
+        return_tensors="pt",
+        truncation=False,
+        padding="longest",
+        return_attention_mask=True,
+    )
+    with torch.inference_mode():
+        generated = model.generate(
+            input_features=inputs.input_features.to(device, dtype=dtype),
+            attention_mask=inputs.attention_mask.to(device),
+            language=None,
+            task="transcribe",
+            condition_on_prev_tokens=False,
+            num_beams=5,
+            temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+            compression_ratio_threshold=1.35,
+            logprob_threshold=-1.0,
+            no_speech_threshold=0.6,
+            return_timestamps=True,
+            max_new_tokens=MAX_NEW_TOKENS,
+        )
+    return clean_transcript(
+        processor.batch_decode(generated, skip_special_tokens=True)[0]
+    )
+
+
+def verify_submission(filenames: list[str]) -> None:
+    result = pd.read_csv(SUBMISSION_PATH)
+    assert list(result.columns) == ["audio_filename", "transcript"]
+    assert len(result) == len(filenames)
+    assert result["audio_filename"].is_unique
+    assert result["audio_filename"].tolist() == filenames
+    assert result["transcript"].isna().sum() == 0
+    print(f"[SUCCESS] Verified {len(result)} rows with no null transcripts")
+
+
+def main() -> None:
+    started = time.time()
+    metadata = pd.read_csv(TEST_METADATA)
+    filenames = metadata["audio_filename"].astype(str).tolist()
+    write_submission(filenames, {})
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dtype = torch.float16 if device.type == "cuda" else torch.float32
+    processor = WhisperProcessor.from_pretrained(MODEL_DIR, local_files_only=True)
+    model = WhisperForConditionalGeneration.from_pretrained(
+        MODEL_DIR,
+        torch_dtype=dtype,
+        local_files_only=True,
+        low_cpu_mem_usage=True,
+    ).to(device)
+    model.eval()
+
+    transcripts: dict[str, str] = {}
+    short_items: list[tuple[str, object, float]] = []
+    long_items: list[tuple[str, object, float]] = []
+
+    for filename in filenames:
+        audio_path = CLIPS_DIR / filename
+        if not audio_path.is_file():
+            print(f"[WARNING] Missing audio at row {len(transcripts)}")
+            transcripts[filename] = BLANK_TRANSCRIPT
+            continue
+        audio, duration = load_audio(audio_path)
+        target = long_items if duration > 30.0 else short_items
+        target.append((filename, audio, duration))
+
+    short_items.sort(key=lambda item: item[2])
+    total_batches = math.ceil(len(short_items) / BATCH_SIZE)
+    for batch_index in range(total_batches):
+        if time.time() - started >= TIME_BUDGET_SECONDS:
+            print("[WARNING] Time budget reached")
+            break
+        batch = short_items[
+            batch_index * BATCH_SIZE : (batch_index + 1) * BATCH_SIZE
+        ]
+        predictions = generate_short(
+            model, processor, [item[1] for item in batch], device, dtype
+        )
+        transcripts.update(
+            {item[0]: prediction for item, prediction in zip(batch, predictions)}
+        )
+        if (batch_index + 1) % 10 == 0 or batch_index + 1 == total_batches:
+            print(f"[PROGRESS] Short batches {batch_index + 1}/{total_batches}")
+            write_submission(filenames, transcripts)
+
+    for index, (filename, audio, _) in enumerate(long_items, start=1):
+        if time.time() - started >= TIME_BUDGET_SECONDS:
+            print("[WARNING] Time budget reached")
+            break
+        transcripts[filename] = generate_long(
+            model, processor, audio, device, dtype
+        )
+        if index % 5 == 0 or index == len(long_items):
+            print(f"[PROGRESS] Long clips {index}/{len(long_items)}")
+            write_submission(filenames, transcripts)
+
+    write_submission(filenames, transcripts)
+    verify_submission(filenames)
 
 
 if __name__ == "__main__":

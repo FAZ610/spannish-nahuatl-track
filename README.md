@@ -161,6 +161,60 @@ python export_submission.py \
     --output_zip submission.zip
 ```
 
+The exporter creates a ZIP with `main.py` at the root and merged model files
+under `weights/`. The standalone entrypoint uses code-switch-safe decoding:
+it does not force Spanish or Nahuatl for mixed clips, disables previous-token
+language carryover, handles clips longer than 30 seconds, writes progress
+incrementally, and verifies complete non-null submission coverage.
+
+Before uploading, test that the archive contains:
+
+```text
+main.py
+weights/config.json
+weights/model.safetensors
+weights/preprocessor_config.json
+weights/tokenizer.json
+```
+
+For best WER, select the checkpoint using the competition validation set,
+not the mixed validation score alone. Compare the competition-only and
+Tetelancingo-only WER/CER, then export the best checkpoint.
+
+### WER improvement protocol
+
+Use the following order; measure every change on the same held-out manifests.
+
+1. **Establish two baselines.** Evaluate the base model and the fine-tuned
+   model separately on `data/dev_metadata.csv` (competition) and the
+   Tetelancingo rows in `data/combined/dev_metadata.csv`.
+2. **Do not force one language.** The data is bilingual and code-switched.
+   Keep `force_language: false`, decode with `language=None`, and always use
+   `task="transcribe"`.
+3. **Disable previous-token carryover.** Use
+   `condition_on_prev_tokens=False` so a language decision from one clip does
+   not contaminate the next clip.
+4. **Do not use n-gram blocking without evidence.** Conversational Nahuatl
+   legitimately repeats words. Test `no_repeat_ngram_size` as an ablation;
+   leave it unset if it increases WER.
+5. **Handle long clips.** Clips longer than 30 seconds need the long-form
+   generation path; truncating them silently deletes reference words.
+6. **Select checkpoints early.** Evaluate checkpoints by step. Low-resource
+   speech data can overfit quickly; the lowest-WER checkpoint may be before
+   the final epoch.
+7. **Control the mixture.** The combined set is dominated by Tetelancingo.
+   Compare the current mixture with a run that repeats or samples the
+   227 competition training rows more often. Select using competition WER.
+8. **Try staged adaptation.** First train on both datasets, then continue for
+   a short stage on the competition training data only. Keep the first-stage
+   checkpoint if competition WER worsens.
+9. **Tune LoRA conservatively.** Compare learning rates around `1e-5` and
+   `2e-5`, and avoid increasing LoRA scale and learning rate together.
+10. **Measure text rules, do not assume them.** Nahuatl orthography and
+    Spanish code-switching conventions differ from Spanish-English corpora.
+    Only add casing, number, punctuation, or spelling transforms when they
+    improve the competition validation WER.
+
 This will:
 1. Merge LoRA adapter weights (if applicable) into a unified `float16` checkpoint inside `./weights/`.
 2. Copy the submission inference script `submission/main.py` directly to the root of the archive.

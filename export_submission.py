@@ -51,6 +51,9 @@ def main():
         model.save_pretrained(weights_dir)
         processor.save_pretrained(weights_dir)
 
+    # Use processor files from the base model for runtime-version compatibility.
+    WhisperProcessor.from_pretrained(args.base_model_id).save_pretrained(weights_dir)
+
     # Copy submission main.py to root of temp_dir
     print("[2/3] Adding main.py entrypoint to archive root...")
     src_main_py = os.path.join("submission", "main.py")
@@ -62,7 +65,7 @@ def main():
     if os.path.exists(args.output_zip):
         os.remove(args.output_zip)
 
-    with zipfile.ZipFile(args.output_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(args.output_zip, "w", compression=zipfile.ZIP_STORED) as zipf:
         for root, dirs, files in os.walk(args.temp_dir):
             for file in files:
                 file_path = os.path.join(root, file)
@@ -78,6 +81,18 @@ def main():
         file_list = zipf.namelist()
         if "main.py" not in file_list:
             raise RuntimeError("Verification Failed: main.py is NOT in the root of the zip archive!")
+        required_paths = {
+            "main.py",
+            "weights/config.json",
+            "weights/model.safetensors",
+            "weights/preprocessor_config.json",
+            "weights/tokenizer.json",
+        }
+        missing_paths = required_paths.difference(file_list)
+        if missing_paths:
+            raise RuntimeError(
+                f"Verification Failed: missing archive files: {sorted(missing_paths)}"
+            )
         print(f"Archive verification successful! Found {len(file_list)} files.")
         print(f"Root files: {[f for f in file_list if '/' not in f]}")
         print(f"Total archive size: {os.path.getsize(args.output_zip) / (1024 * 1024):.2f} MB")
