@@ -22,7 +22,19 @@ def parse_args():
     parser.add_argument("--output_csv", type=str, default="output/eval_predictions.csv", help="Path to save predictions")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--language", type=str, default=None, help="Optional forced decode language")
-    parser.add_argument("--num_beams", type=int, default=5, help="Beam count for generation")
+    parser.add_argument("--num_beams", type=int, default=1, help="Beam count for generation")
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Generation temperature; 0 uses deterministic decoding",
+    )
+    parser.add_argument(
+        "--length_penalty",
+        type=float,
+        default=1.0,
+        help="Length penalty used during beam search",
+    )
     return parser.parse_args()
 
 
@@ -110,13 +122,20 @@ def main():
             generation_inputs["attention_mask"] = inputs.attention_mask.to(device)
 
         with torch.inference_mode():
-            predicted_ids = model.generate(
+            generation_kwargs = {
                 **generation_inputs,
                 **({"language": args.language} if args.language else {}),
-                task="transcribe",
-                num_beams=args.num_beams,
-                condition_on_prev_tokens=False,
-                max_new_tokens=225,
+                "task": "transcribe",
+                "num_beams": args.num_beams,
+                "condition_on_prev_tokens": False,
+                "max_new_tokens": 225,
+                "length_penalty": args.length_penalty,
+            }
+            if args.temperature > 0:
+                generation_kwargs["temperature"] = args.temperature
+
+            predicted_ids = model.generate(
+                **generation_kwargs,
             )
 
         transcriptions = processor.batch_decode(predicted_ids, skip_special_tokens=True)
