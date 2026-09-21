@@ -1,6 +1,7 @@
 import os
 import argparse
 import torch
+import torch.nn.functional as F
 from transformers import (
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
@@ -10,6 +11,32 @@ from src.model import get_model, merge_and_save_lora
 from src.dataset import SpanishNahuatlDataset
 from src.collator import DataCollatorSpeechSeq2SeqWithPadding
 from src.metrics import ComputeMetrics
+
+
+class WhisperSeq2SeqTrainer(Seq2SeqTrainer):
+    """Trainer with Whisper-safe label smoothing.
+
+    The built-in Trainer label smoother can provide both decoder input forms
+    with some Transformers/Whisper combinations. Passing labels directly to
+    Whisper and smoothing its returned logits avoids that conflict.
+    """
+
+    def __init__(self, *args, label_smoothing_factor: float = 0.0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.whisper_label_smoothing_factor = label_smoothing_factor
+
+    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs, labels=labels)
+        logits = outputs.logits
+        smoothing = self.whisper_label_smoothing_factor
+        loss = F.cross_entropy(
+            logits.reshape(-1, logits.size(-1)),
+            labels.reshape(-1),
+            ignore_index=-100,
+            label_smoothing=smoothing,
+        )
+        return (loss, outputs) if return_outputs else loss
 
 
 def parse_args():
@@ -161,13 +188,15 @@ def main():
         dataloader_num_workers=config["training"].get("dataloader_num_workers", 2),
         predict_with_generate=config["training"].get("predict_with_generate", True),
         generation_max_length=config["training"].get("generation_max_length", 225),
-        label_smoothing_factor=config["training"].get("label_smoothing_factor", 0.0),
+        # Built-in label smoothing is disabled because Whisper runtimes can
+        # receive conflicting decoder inputs; the custom trainer applies it.
+        label_smoothing_factor=0.0,
         report_to=["none"],
         remove_unused_columns=False,
     )
 
     # 5. Trainer
-    trainer = Seq2SeqTrainer(
+    trainer = WhisperSeq2SeqTrainer(
         args=training_args,
         model=model,
         train_dataset=train_dataset,
@@ -175,6 +204,7 @@ def main():
         data_collator=data_collator,
         compute_metrics=compute_metrics if eval_dataset else None,
         processing_class=processor.feature_extractor,
+        label_smoothing_factor=config["training"].get("label_smoothing_factor", 0.0),
     )
 
     # 6. Train
