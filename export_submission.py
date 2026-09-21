@@ -3,7 +3,12 @@ import shutil
 import zipfile
 import argparse
 from src.model import merge_and_save_lora
-from transformers import WhisperProcessor, WhisperForConditionalGeneration
+from transformers import (
+    WhisperFeatureExtractor,
+    WhisperForConditionalGeneration,
+    WhisperProcessor,
+    WhisperTokenizer,
+)
 
 
 def parse_args():
@@ -52,7 +57,30 @@ def main():
         processor.save_pretrained(weights_dir)
 
     # Use processor files from the base model for runtime-version compatibility.
-    WhisperProcessor.from_pretrained(args.base_model_id).save_pretrained(weights_dir)
+    # Save the feature extractor and tokenizer separately because processor
+    # serialization differs across Transformers versions.
+    base_processor = WhisperProcessor.from_pretrained(args.base_model_id)
+    base_processor.save_pretrained(weights_dir)
+    WhisperFeatureExtractor.from_pretrained(args.base_model_id).save_pretrained(
+        weights_dir
+    )
+    WhisperTokenizer.from_pretrained(args.base_model_id).save_pretrained(weights_dir)
+
+    required_files = [
+        "config.json",
+        "model.safetensors",
+        "preprocessor_config.json",
+        "tokenizer.json",
+    ]
+    missing_files = [
+        filename
+        for filename in required_files
+        if not os.path.isfile(os.path.join(weights_dir, filename))
+    ]
+    if missing_files:
+        raise RuntimeError(
+            f"Export staging is incomplete; missing files: {missing_files}"
+        )
 
     # Copy submission main.py to root of temp_dir
     print("[2/3] Adding main.py entrypoint to archive root...")
