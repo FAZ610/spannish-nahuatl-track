@@ -67,7 +67,13 @@ def get_model(
     )
 
     # Configure generation parameters
-    model.generation_config.language = language
+    force_language = True
+    if config_dict and "model" in config_dict:
+        force_language = config_dict["model"].get("force_language", True)
+    if force_language:
+        model.generation_config.language = language
+    else:
+        model.generation_config.language = None
     model.generation_config.task = task
     model.generation_config.forced_decoder_ids = None
 

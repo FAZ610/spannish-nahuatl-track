@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=16, help="Inference batch size")
     parser.add_argument("--output_csv", type=str, default="output/eval_predictions.csv", help="Path to save predictions")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--language", type=str, default=None, help="Optional forced decode language")
     return parser.parse_args()
 
 
@@ -97,13 +98,18 @@ def main():
             sampling_rate=16000,
             return_tensors="pt",
             padding=True,
+            return_attention_mask=True,
         )
-        input_features = inputs.input_features.to(device, dtype=dtype)
+        generation_inputs = {
+            "input_features": inputs.input_features.to(device, dtype=dtype),
+        }
+        if "attention_mask" in inputs:
+            generation_inputs["attention_mask"] = inputs.attention_mask.to(device)
 
         with torch.inference_mode():
             predicted_ids = model.generate(
-                input_features,
-                language="spanish",
+                **generation_inputs,
+                **({"language": args.language} if args.language else {}),
                 task="transcribe",
                 max_new_tokens=225,
             )
