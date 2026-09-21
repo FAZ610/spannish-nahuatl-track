@@ -1,6 +1,7 @@
 import os
 import re
 import random
+import unicodedata
 import yaml
 import torch
 import numpy as np
@@ -32,20 +33,29 @@ def save_config(config: dict, path: str):
 
 def normalize_transcript(text: str) -> str:
     """
-    Normalizes transcript text according to competition conventions:
+    Normalizes transcript text for training and comparable WER evaluation:
     - Removes bracketed tags (e.g., [laughter], <music>)
-    - Cleans extra whitespaces
-    - Keeps Spanish and Nahuatl characters intact
+    - Uses Unicode-normalized lowercase text
+    - Replaces punctuation with spaces
+    - Cleans extra whitespace
+
+    Letters and combining marks are preserved so Nahuatl orthography is not
+    altered. This is a punctuation/case normalization, not a spelling
+    conversion between dialects.
     """
     if not isinstance(text, str):
         return ""
-    
+
     # Remove bracketed and parenthesized annotation tags like [laughter], <crying>, (cough)
     text = re.sub(r"\[.*?\]", " ", text)
     text = re.sub(r"\<.*?\>", " ", text)
     text = re.sub(r"\(.*?\)", " ", text)
-    
-    # Replace multiple whitespaces and newlines with a single space
+
+    text = unicodedata.normalize("NFC", text).casefold()
+    text = "".join(
+        " " if unicodedata.category(character).startswith("P") else character
+        for character in text
+    )
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
