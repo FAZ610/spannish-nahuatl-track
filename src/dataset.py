@@ -31,8 +31,9 @@ class SpanishNahuatlDataset(Dataset):
         self.is_training = is_training
         self.text_column = text_column
 
-        # Load metadata
-        df = pd.read_csv(manifest_path)
+        # Load comma-separated or tab-separated metadata.
+        delimiter = "\t" if manifest_path.lower().endswith((".tsv", ".tab")) else ","
+        df = pd.read_csv(manifest_path, sep=delimiter)
         
         # Check available columns
         if audio_column not in df.columns:

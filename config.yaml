@@ -7,10 +7,11 @@ model:
   torch_dtype: "bfloat16"  # "bfloat16" or "float16" or "float32"
 
 data:
-  train_manifest: "data/train_metadata.csv"
-  train_audio_dir: "data/train_clips"
-  val_manifest: "data/dev_metadata.csv"
-  val_audio_dir: "data/dev_clips"
+  train_manifest: "nahuatl_dev/metadata.tsv"
+  train_audio_dir: "nahuatl_dev/clips"
+  # The cloned data has no separate training/validation split.
+  val_manifest: ""
+  val_audio_dir: "nahuatl_dev/clips"
   audio_column: "audio_filename"
   text_column: "transcript"
   max_duration_seconds: 30.0
