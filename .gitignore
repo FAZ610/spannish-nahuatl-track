@@ -33,5 +33,9 @@ env/
 .env
 .env.*
 
+# Reference Spanish-English project
+lit-spen-main/
+lit-spen-main.zip
+
 # Keep repository metadata manifests tracked.
 # Keep data/combined/*.csv and *.tsv unless they contain sensitive annotations.
