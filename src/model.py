@@ -33,6 +33,7 @@ def get_model(
     config_dict: dict = None,
     use_lora: bool = True,
     lora_config_dict: dict = None,
+    lora_weights_dir: str = None,
     torch_dtype: str = "bfloat16",
     device_map: str = None,
 ) -> tuple[WhisperForConditionalGeneration, WhisperProcessor]:
@@ -92,14 +93,22 @@ def get_model(
             lora_dropout = lora_config_dict.get("lora_dropout", lora_dropout)
             bias = lora_config_dict.get("bias", bias)
 
-        peft_config = LoraConfig(
-            r=r,
-            lora_alpha=lora_alpha,
-            target_modules=target_modules,
-            lora_dropout=lora_dropout,
-            bias=bias,
-        )
-        model = get_peft_model(model, peft_config)
+        if lora_weights_dir:
+            print(f"Loading initial LoRA adapter weights from {lora_weights_dir}")
+            model = PeftModel.from_pretrained(
+                model,
+                lora_weights_dir,
+                is_trainable=True,
+            )
+        else:
+            peft_config = LoraConfig(
+                r=r,
+                lora_alpha=lora_alpha,
+                target_modules=target_modules,
+                lora_dropout=lora_dropout,
+                bias=bias,
+            )
+            model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
 
     return model, processor

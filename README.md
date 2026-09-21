@@ -204,7 +204,10 @@ python train.py --config config.yaml \
 ```
 
 Choose the best Stage 1 checkpoint using competition validation WER. Then
-continue from that checkpoint on competition training data:
+initialize a fresh Trainer from that adapter on competition training data.
+Use `--init_lora_from`, not `--resume_from_checkpoint`: the latter restores
+the Stage 1 optimizer, scheduler, and global step and can make a smaller
+Stage 2 run exit without doing any updates.
 
 ```bash
 python train.py --config config.yaml \
@@ -214,7 +217,7 @@ python train.py --config config.yaml \
   --val_audio_dir nahuatl_dev/clips \
   --num_train_epochs 2 \
   --learning_rate 5e-6 \
-  --resume_from_checkpoint output/curriculum-stage1/checkpoint-N \
+  --init_lora_from output/curriculum-stage1/checkpoint-N \
   --output_dir output/curriculum-stage2 \
   --merge_lora
 ```

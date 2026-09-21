@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument("--output_csv", type=str, default="output/eval_predictions.csv", help="Path to save predictions")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--language", type=str, default=None, help="Optional forced decode language")
+    parser.add_argument("--num_beams", type=int, default=5, help="Beam count for generation")
     return parser.parse_args()
 
 
@@ -113,6 +114,8 @@ def main():
                 **generation_inputs,
                 **({"language": args.language} if args.language else {}),
                 task="transcribe",
+                num_beams=args.num_beams,
+                condition_on_prev_tokens=False,
                 max_new_tokens=225,
             )
 

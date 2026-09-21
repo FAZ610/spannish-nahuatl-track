@@ -54,6 +54,12 @@ def parse_args():
     parser.add_argument("--max_train_samples", type=int, default=None, help="Limit training samples for a smoke test")
     parser.add_argument("--max_eval_samples", type=int, default=None, help="Limit evaluation samples for a smoke test")
     parser.add_argument("--resume_from_checkpoint", type=str, default=None, help="Resume from a Trainer checkpoint")
+    parser.add_argument(
+        "--init_lora_from",
+        type=str,
+        default=None,
+        help="Initialize from LoRA adapter weights without restoring Trainer state",
+    )
     parser.add_argument("--merge_lora", action="store_true", help="Merge LoRA weights into standalone model after training")
     return parser.parse_args()
 
@@ -101,6 +107,7 @@ def main():
         config_dict=config,
         use_lora=use_lora,
         lora_config_dict=config.get("lora", {}),
+        lora_weights_dir=args.init_lora_from,
         torch_dtype=config["model"].get("torch_dtype", "bfloat16"),
     )
     trainable_params = sum(
