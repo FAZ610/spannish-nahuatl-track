@@ -1,0 +1,37 @@
+# Downloaded dataset archives
+*.tar.gz
+*.zip
+
+# Dataset audio
+nahuatl_dev/clips/
+tetelancingo_nahuatl/audios/
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# Local training outputs and checkpoints
+output/
+outputs/
+checkpoints/
+runs/
+dist_submission/
+weights/
+submission.zip
+
+# Python and notebook caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.marimo/
+.ipynb_checkpoints/
+
+# Local environment and secrets
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# Keep repository metadata manifests tracked.
+# Keep data/combined/*.csv and *.tsv unless they contain sensitive annotations.

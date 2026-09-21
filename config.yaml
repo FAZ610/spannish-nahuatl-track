@@ -8,10 +8,10 @@ model:
   torch_dtype: "bfloat16"  # "bfloat16" or "float16" or "float32"
 
 data:
-  train_manifest: "data/train_metadata.csv"
-  train_audio_dir: "nahuatl_dev/clips"
-  val_manifest: "data/dev_metadata.csv"
-  val_audio_dir: "nahuatl_dev/clips"
+  train_manifest: "data/combined/train_metadata.csv"
+  train_audio_dir: "."
+  val_manifest: "data/combined/dev_metadata.csv"
+  val_audio_dir: "."
   audio_column: "audio_filename"
   text_column: "transcript"
   max_duration_seconds: 30.0

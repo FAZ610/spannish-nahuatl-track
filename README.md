@@ -49,6 +49,31 @@ python prepare_data.py
 The script writes `data/train_metadata.csv` and `data/dev_metadata.csv`; both
 splits use audio from `nahuatl_dev/clips`.
 
+### Combine the Tetelancingo corpus
+
+The Tetelancingo corpus already provides an official `train`/`test` split.
+Do not randomly reshuffle those rows: the five speakers occur in both splits,
+so preserving the supplied split gives a useful held-out evaluation set.
+
+After extracting both datasets, build combined manifests with:
+
+```bash
+python prepare_combined_data.py
+```
+
+This writes:
+
+```text
+data/combined/train_metadata.csv  # 227 competition + 2,412 Tetelancingo rows
+data/combined/dev_metadata.csv    # 110 competition + 269 Tetelancingo rows
+```
+
+The Tetelancingo `sentence` field is used as the ASR transcript. Its
+`original_sentence`, Spanish translation, and `lid_tokens` fields are not
+ASR targets and are intentionally not included. Audio paths in these
+manifests are repository-relative, so both datasets can be used with
+`train_audio_dir: "."`.
+
 For the full competition dataset, organize it under `./data/`:
 
 ```
@@ -59,6 +84,16 @@ data/
 ├── dev_clips/                # Validation audio files
 ├── test_metadata.csv         # Provided during evaluation / smoke test
 └── clips/                    # Test clips directory
+```
+
+For the combined manifests, set the data section in `config.yaml` to:
+
+```yaml
+data:
+  train_manifest: "data/combined/train_metadata.csv"
+  train_audio_dir: "."
+  val_manifest: "data/combined/dev_metadata.csv"
+  val_audio_dir: "."
 ```
 
 ---
