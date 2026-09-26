@@ -49,8 +49,8 @@ training:
   label_smoothing_factor: 0.1
   warmup_steps: 100
 lora:
-  r: 32
-  lora_alpha: 64
+  r: 64
+  lora_alpha: 128
   target_modules:
   - q_proj
   - k_proj
