@@ -1,6 +1,7 @@
 import shutil
 import zipfile
 import argparse
+import json
 import sys
 from pathlib import Path
 from transformers import (
@@ -22,6 +23,24 @@ def parse_args():
     parser.add_argument("--output_zip", type=str, default="submission.zip", help="Destination zip path")
     parser.add_argument("--temp_dir", type=str, default="./dist_submission", help="Temporary packaging directory")
     return parser.parse_args()
+
+
+def sanitize_tokenizer_config(weights_dir: Path) -> None:
+    """Keep tokenizer metadata readable by the competition's Transformers 4.57.6."""
+    config_path = weights_dir / "tokenizer_config.json"
+    if not config_path.is_file():
+        raise RuntimeError(f"Missing tokenizer configuration: {config_path}")
+
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    extra_special_tokens = config.get("extra_special_tokens")
+    if isinstance(extra_special_tokens, list):
+        # Transformers 5 serializes this as a list, but 4.57.6 expects a
+        # mapping and fails before the processor can be constructed.
+        del config["extra_special_tokens"]
+        config_path.write_text(
+            json.dumps(config, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
 
 def main():
@@ -70,6 +89,7 @@ def main():
         WhisperTokenizer.from_pretrained(args.base_model_id).save_pretrained(
             str(weights_dir)
         )
+        sanitize_tokenizer_config(weights_dir)
 
         required_files = [
             "config.json",
@@ -110,7 +130,9 @@ def main():
                 "weights/config.json",
                 "weights/model.safetensors",
                 "weights/preprocessor_config.json",
+                "weights/processor_config.json",
                 "weights/tokenizer.json",
+                "weights/tokenizer_config.json",
             }
             missing_paths = required_paths.difference(file_list)
             if missing_paths or "main.py" not in file_list:
