@@ -1,14 +1,18 @@
 import shutil
 import zipfile
 import argparse
+import sys
 from pathlib import Path
-from src.model import merge_and_save_lora
 from transformers import (
     WhisperFeatureExtractor,
     WhisperForConditionalGeneration,
     WhisperProcessor,
     WhisperTokenizer,
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def parse_args():
@@ -37,6 +41,8 @@ def main():
         adapter_config_path = Path(args.model_dir) / "adapter_config.json"
         if adapter_config_path.is_file():
             print("[1/3] Merging LoRA adapter into base model for offline submission...")
+            from src.model import merge_and_save_lora
+
             merge_and_save_lora(
                 base_model_id=args.base_model_id,
                 lora_weights_dir=args.model_dir,
