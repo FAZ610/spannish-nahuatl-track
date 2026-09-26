@@ -49,7 +49,12 @@ def get_model(
         language = config_dict["model"].get("language", "spanish")
         task = config_dict["model"].get("task", "transcribe")
         
-    processor = get_processor(model_id=model_id, language=language, task=task)
+    model_source = (
+        config_dict.get("model", {}).get("base_model_path")
+        if config_dict
+        else None
+    ) or model_id
+    processor = get_processor(model_id=model_source, language=language, task=task)
 
     # Model kwargs
     model_kwargs = {
@@ -63,7 +68,7 @@ def get_model(
         model_kwargs["device_map"] = device_map
 
     model = WhisperForConditionalGeneration.from_pretrained(
-        model_id,
+        model_source,
         **model_kwargs,
     )
 

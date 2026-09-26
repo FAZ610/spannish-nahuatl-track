@@ -1,0 +1,57 @@
+model:
+  model_id: openai/whisper-large-v3-turbo
+  language: spanish
+  force_language: false
+  task: transcribe
+  sampling_rate: 16000
+  use_flash_attention_2: false
+  torch_dtype: bfloat16
+data:
+  train_manifest: data/combined/train_metadata.csv
+  train_audio_dir: .
+  val_manifest: data/combined/dev_metadata.csv
+  val_audio_dir: .
+  audio_column: audio_filename
+  text_column: transcript
+  max_duration_seconds: 30.0
+  min_duration_seconds: 0.5
+  num_proc: 4
+  spec_augment: true
+  frequency_mask_param: 15
+  time_mask_param: 35
+  num_frequency_masks: 2
+  num_time_masks: 2
+training:
+  use_lora: true
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 2
+  gradient_checkpointing: true
+  learning_rate: 5.0e-6
+  num_train_epochs: 8
+  warmup_steps: 8
+  eval_steps: 16
+  save_steps: 16
+  save_total_limit: 5
+  load_best_model_at_end: true
+  metric_for_best_model: wer
+  greater_is_better: false
+
+lora:
+  r: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  bias: none
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - out_proj
+    - fc1
+    - fc2
+
+inference:
+  batch_size: 32
+  beam_size: 8
+  max_new_tokens: 225
+  torch_dtype: float16

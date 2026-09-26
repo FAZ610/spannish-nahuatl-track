@@ -47,6 +47,12 @@ def parse_args():
     parser.add_argument("--val_manifest", type=str, default=None, help="Override validation manifest path")
     parser.add_argument("--val_audio_dir", type=str, default=None, help="Override validation audio dir")
     parser.add_argument("--output_dir", type=str, default=None, help="Override output directory")
+    parser.add_argument(
+        "--base_model_path",
+        type=str,
+        default=None,
+        help="Load the base model and processor from a local full checkpoint",
+    )
     parser.add_argument("--num_train_epochs", type=int, default=None, help="Override number of epochs")
     parser.add_argument("--learning_rate", type=float, default=None, help="Override learning rate")
     parser.add_argument("--batch_size", type=int, default=None, help="Override per-device train batch size")
@@ -79,6 +85,8 @@ def main():
         config["data"]["val_audio_dir"] = args.val_audio_dir
     if args.output_dir:
         config["training"]["output_dir"] = args.output_dir
+    if args.base_model_path:
+        config.setdefault("model", {})["base_model_path"] = args.base_model_path
     if args.num_train_epochs:
         config["training"]["num_train_epochs"] = args.num_train_epochs
     if args.learning_rate:
@@ -91,6 +99,7 @@ def main():
     set_seed(42)
 
     model_id = config["model"]["model_id"]
+    base_model_source = config["model"].get("base_model_path") or model_id
     use_lora = config["training"].get("use_lora", True)
     output_dir = config["training"]["output_dir"]
     os.makedirs(output_dir, exist_ok=True)
@@ -228,7 +237,7 @@ def main():
         merged_dir = os.path.join(output_dir, "merged_model")
         print(f"Merging LoRA weights into {merged_dir}...")
         merge_and_save_lora(
-            base_model_id=model_id,
+            base_model_id=base_model_source,
             lora_weights_dir=output_dir,
             output_dir=merged_dir,
             torch_dtype=config["inference"].get("torch_dtype", "float16"),
