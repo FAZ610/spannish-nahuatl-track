@@ -177,7 +177,7 @@ def main():
         per_device_eval_batch_size=config["training"].get("per_device_eval_batch_size", 8),
         gradient_accumulation_steps=config["training"].get("gradient_accumulation_steps", 4),
         learning_rate=config["training"].get("learning_rate", 1e-4),
-        warmup_ratio=config["training"].get("warmup_ratio", 0.1),
+        warmup_steps=config["training"].get("warmup_steps", 100),
         num_train_epochs=config["training"].get("num_train_epochs", 5),
         weight_decay=config["training"].get("weight_decay", 0.01),
         lr_scheduler_type=config["training"].get("lr_scheduler_type", "cosine"),

@@ -1,19 +1,18 @@
 model:
-  model_id: "openai/whisper-large-v3-turbo"
-  language: "spanish"  # Processor tokenizer language; do not force it at decode time
+  model_id: openai/whisper-large-v3-turbo
+  language: spanish
   force_language: false
-  task: "transcribe"
+  task: transcribe
   sampling_rate: 16000
-  use_flash_attention_2: false  # Enable if hardware supports FlashAttention-2 (Ampere+ / A100)
-  torch_dtype: "bfloat16"  # "bfloat16" or "float16" or "float32"
-
+  use_flash_attention_2: false
+  torch_dtype: bfloat16
 data:
-  train_manifest: "data/combined/train_metadata.csv"
-  train_audio_dir: "."
-  val_manifest: "data/combined/dev_metadata.csv"
-  val_audio_dir: "."
-  audio_column: "audio_filename"
-  text_column: "transcript"
+  train_manifest: data/combined/train_metadata.csv
+  train_audio_dir: .
+  val_manifest: data/combined/dev_metadata.csv
+  val_audio_dir: .
+  audio_column: audio_filename
+  text_column: transcript
   max_duration_seconds: 30.0
   min_duration_seconds: 0.5
   num_proc: 4
@@ -22,44 +21,47 @@ data:
   time_mask_param: 35
   num_frequency_masks: 2
   num_time_masks: 2
-
 training:
-  output_dir: "./output/whisper-large-v3-turbo-spanish-nahuatl"
+  output_dir: ./output/whisper-large-v3-turbo-spanish-nahuatl
   use_lora: true
   num_train_epochs: 5
   per_device_train_batch_size: 16
   per_device_eval_batch_size: 16
-  gradient_accumulation_steps: 4
-  learning_rate: 2.0e-5
-  warmup_ratio: 0.1
-  lr_scheduler_type: "cosine"
+  gradient_accumulation_steps: 2
+  learning_rate: 2.0e-05
+  lr_scheduler_type: cosine
   weight_decay: 0.01
   logging_steps: 25
   eval_steps: 250
   save_steps: 250
   save_total_limit: 3
-  evaluation_strategy: "steps"
-  save_strategy: "steps"
+  evaluation_strategy: steps
+  save_strategy: steps
   load_best_model_at_end: true
-  metric_for_best_model: "wer"
+  metric_for_best_model: wer
   greater_is_better: false
   fp16: false
   bf16: true
-  gradient_checkpointing: true
-  dataloader_num_workers: 4
+  gradient_checkpointing: false
+  dataloader_num_workers: 8
   predict_with_generate: true
   generation_max_length: 225
   label_smoothing_factor: 0.1
-
+  warmup_steps: 100
 lora:
   r: 32
   lora_alpha: 64
-  target_modules: ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"]
+  target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - out_proj
+  - fc1
+  - fc2
   lora_dropout: 0.05
-  bias: "none"
-
+  bias: none
 inference:
   batch_size: 32
-  beam_size: 5  # Greedy decode (fastest for large-v3-turbo)
+  beam_size: 5
   max_new_tokens: 225
-  torch_dtype: "float16"
+  torch_dtype: float16
