@@ -87,7 +87,10 @@ def main():
             )
 
         print("[2/3] Adding main.py entrypoint to archive root...")
-        shutil.copy2("submission/main.py", temp_dir / "main.py")
+        entrypoint = PROJECT_ROOT / "submission" / "main.py"
+        if not entrypoint.is_file():
+            raise RuntimeError(f"Competition entrypoint not found: {entrypoint}")
+        shutil.copy2(entrypoint, temp_dir / "main.py")
 
         print(f"[3/3] Creating zip archive at {output_zip}...")
         output_zip.parent.mkdir(parents=True, exist_ok=True)
